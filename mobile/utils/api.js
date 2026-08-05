@@ -68,9 +68,6 @@ export const processImageOnServer = async (imageUri, options = {}) => {
     const response = await fetch(`${SERVER_URL}/api/process`, {
       method: "POST",
       body: formData,
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
     });
 
     if (!response.ok) {
