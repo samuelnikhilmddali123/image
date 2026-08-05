@@ -20,6 +20,7 @@ import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
 import { checkServerHealth, processImageOnServer, getServerUrl, setServerUrl } from './utils/api';
 import * as FileSystem from 'expo-file-system';
+import FullScreenImageViewer from './components/FullScreenImageViewer';
 
 const { width } = Dimensions.get('window');
 
@@ -46,6 +47,8 @@ export default function App() {
   const [tempUrl, setTempUrl] = useState(getServerUrl());
   const [serverOnline, setServerOnline] = useState(false);
   const [serverStatus, setServerStatus] = useState('Checking...');
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerInitialMode, setViewerInitialMode] = useState('result');
 
   const logScrollRef = useRef();
 
@@ -260,13 +263,26 @@ export default function App() {
           {currentOriginal ? (
             <View style={styles.previewsWrapper}>
               {/* Original preview */}
-              <View style={styles.previewBox}>
+              <TouchableOpacity 
+                style={styles.previewBox} 
+                onPress={() => {
+                  setViewerInitialMode('original');
+                  setViewerVisible(true);
+                }}
+              >
                 <Image source={{ uri: currentOriginal }} style={styles.previewImage} contentFit="contain" />
                 <Text style={styles.previewLabel}>Original</Text>
-              </View>
+              </TouchableOpacity>
 
               {/* Processed preview */}
-              <View style={styles.previewBox}>
+              <TouchableOpacity 
+                style={styles.previewBox}
+                disabled={!currentProcessed}
+                onPress={() => {
+                  setViewerInitialMode('result');
+                  setViewerVisible(true);
+                }}
+              >
                 {currentProcessed ? (
                   <Image source={{ uri: currentProcessed }} style={styles.previewImage} contentFit="contain" />
                 ) : (
@@ -277,7 +293,7 @@ export default function App() {
                   </View>
                 )}
                 <Text style={styles.previewLabel}>Result</Text>
-              </View>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.placeholderCard}>
@@ -458,6 +474,14 @@ export default function App() {
           </View>
         </View>
       </Modal>
+
+      <FullScreenImageViewer
+        visible={viewerVisible}
+        originalImage={currentOriginal}
+        resultImage={currentProcessed}
+        initialImage={viewerInitialMode}
+        onClose={() => setViewerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
