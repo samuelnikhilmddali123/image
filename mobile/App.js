@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
 import { checkServerHealth, processImageOnServer, getServerUrl, setServerUrl } from './utils/api';
+import * as FileSystem from 'expo-file-system';
 
 const { width } = Dimensions.get('window');
 
@@ -195,8 +196,6 @@ export default function App() {
     }
 
     try {
-      const FileSystem = require('expo-file-system');
-      
       // If single image, share it directly
       if (processedImages.length === 1) {
         const filename = `AI_Processed_${Date.now()}.png`;
