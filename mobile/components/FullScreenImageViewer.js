@@ -6,17 +6,16 @@ import {
   Modal,
   TouchableOpacity,
   Animated,
-  PanResponder,
   Dimensions,
 } from 'react-native';
-import { Image } from 'expo-image';
+import ZoomableImage from './ZoomableImage';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 /**
  * FullScreenImageViewer - A professional full-screen image viewer component
  * featuring a floating bottom navigation bar for before/after comparison,
- * alongside pinch-to-zoom and pan interactions.
+ * powered by a high-performance ZoomableImage gesture component.
  *
  * Props:
  * - visible (boolean): Controls visibility of the viewer modal.
@@ -35,23 +34,13 @@ export default function FullScreenImageViewer({
   // Toggle state between Original and Result images
   const [showOriginal, setShowOriginal] = useState(false);
 
-  // Animation values for scale, position, and modal fade transition
-  const scale = useRef(new Animated.Value(1)).current;
-  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  // Modal fade transition animation value
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  // Touch gesture helper states
-  const lastScale = useRef(1);
-  const startDistance = useRef(null);
-  const lastTap = useRef(null);
 
   // Synchronize state when the viewer becomes visible
   useEffect(() => {
     if (visible) {
       setShowOriginal(initialImage === 'before');
-      scale.setValue(1);
-      pan.setValue({ x: 0, y: 0 });
-      lastScale.current = 1;
       fadeAnim.setValue(0);
 
       // Smooth entry transition
@@ -62,96 +51,6 @@ export default function FullScreenImageViewer({
       }).start();
     }
   }, [visible, initialImage]);
-
-  // Helper function to calculate distance between two touch coordinates (for pinch zoom)
-  const getDistance = (touches) => {
-    if (touches.length < 2) return 0;
-    const dx = touches[0].pageX - touches[1].pageX;
-    const dy = touches[0].pageY - touches[1].pageY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  // Create a custom PanResponder to handle zoom gestures and panning
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-
-      onPanResponderGrant: (evt, gestureState) => {
-        const touches = evt.nativeEvent.touches;
-        
-        // 1. Double Tap to Zoom
-        const now = Date.now();
-        if (lastTap.current && now - lastTap.current < 300) {
-          const targetScale = lastScale.current > 1 ? 1 : 2.5;
-          lastScale.current = targetScale;
-          
-          Animated.parallel([
-            Animated.spring(scale, {
-              toValue: targetScale,
-              useNativeDriver: true,
-            }),
-            Animated.spring(pan, {
-              toValue: { x: 0, y: 0 },
-              useNativeDriver: true,
-            }),
-          ]).start();
-          return;
-        }
-        lastTap.current = now;
-
-        // 2. Setup initial pinch-to-zoom values if two fingers are active
-        if (touches.length === 2) {
-          startDistance.current = getDistance(touches);
-        }
-      },
-
-      onPanResponderMove: (evt, gestureState) => {
-        const touches = evt.nativeEvent.touches;
-
-        // Handle Pinch-to-Zoom (Two fingers)
-        if (touches.length === 2) {
-          if (startDistance.current) {
-            const currentDistance = getDistance(touches);
-            const rawScale = (currentDistance / startDistance.current) * lastScale.current;
-            const boundedScale = Math.max(1, Math.min(rawScale, 4));
-            scale.setValue(boundedScale);
-          }
-        } 
-        // Handle Panning / Dragging (One finger, only when zoomed in)
-        else if (touches.length === 1 && lastScale.current > 1) {
-          pan.setValue({
-            x: gestureState.dx + (pan.x._value - gestureState.dx),
-            y: gestureState.dy + (pan.y._value - gestureState.dy),
-          });
-        }
-      },
-
-      onPanResponderRelease: (evt, gestureState) => {
-        // Update the scale baseline reference
-        lastScale.current = scale._value;
-
-        // If zoomed out, reset position back to center smoothly
-        if (lastScale.current <= 1.05) {
-          lastScale.current = 1;
-          Animated.parallel([
-            Animated.spring(scale, {
-              toValue: 1,
-              friction: 7,
-              useNativeDriver: true,
-            }),
-            Animated.spring(pan, {
-              toValue: { x: 0, y: 0 },
-              friction: 7,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }
-
-        startDistance.current = null;
-      },
-    })
-  ).current;
 
   // Close animation handler
   const handleClose = () => {
@@ -178,38 +77,15 @@ export default function FullScreenImageViewer({
           </TouchableOpacity>
         </View>
 
-        {/* Gestures Area */}
-        <View style={styles.gestureContainer} {...panResponder.panHandlers}>
-          <Animated.View
-            style={[
-              styles.imageWrapper,
-              {
-                transform: [
-                  { translateX: pan.x },
-                  { translateY: pan.y },
-                  { scale: scale },
-                ],
-              },
-            ]}
-          >
-            {/* Preloaded Images - swapped visibility to keep state & zoom consistent */}
-            <Image
-              source={{ uri: originalImage }}
-              style={[
-                styles.image,
-                { opacity: showOriginal ? 1 : 0, position: 'absolute' }
-              ]}
-              contentFit="contain"
-            />
-            <Image
-              source={{ uri: resultImage || originalImage }}
-              style={[
-                styles.image,
-                { opacity: !showOriginal ? 1 : 0 }
-              ]}
-              contentFit="contain"
-            />
-          </Animated.View>
+        {/* High-Performance Zoomable Image Area */}
+        <View style={styles.gestureContainer}>
+          <ZoomableImage
+            key={visible ? 'active' : 'inactive'}
+            source={{ uri: showOriginal ? originalImage : (resultImage || originalImage) }}
+            resetOnSourceChange={false}
+            contentFit="contain"
+            isActive={visible}
+          />
         </View>
 
         {/* Floating Bottom Navigation Toggle Bar */}
@@ -271,16 +147,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imageWrapper: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  image: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.75,
-  },
   navBar: {
     position: 'absolute',
     bottom: 50,
@@ -295,6 +161,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 8,
+    zIndex: 100,
   },
   navButton: {
     paddingVertical: 10,
