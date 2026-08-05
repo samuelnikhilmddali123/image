@@ -12,6 +12,7 @@ import {
   StatusBar,
   TextInput,
   Modal,
+  Platform,
   Dimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -466,6 +467,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0f172a',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',
