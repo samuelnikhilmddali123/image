@@ -266,7 +266,7 @@ export default function App() {
               <TouchableOpacity 
                 style={styles.previewBox} 
                 onPress={() => {
-                  setViewerInitialMode('original');
+                  setViewerInitialMode('before');
                   setViewerVisible(true);
                 }}
               >
@@ -279,7 +279,7 @@ export default function App() {
                 style={styles.previewBox}
                 disabled={!currentProcessed}
                 onPress={() => {
-                  setViewerInitialMode('result');
+                  setViewerInitialMode('after');
                   setViewerVisible(true);
                 }}
               >

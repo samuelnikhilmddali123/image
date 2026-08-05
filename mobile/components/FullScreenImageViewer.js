@@ -15,67 +15,53 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 /**
  * FullScreenImageViewer - A professional full-screen image viewer component
- * designed for before/after comparison with pinch-to-zoom and hold-to-compare functionality.
+ * featuring a floating bottom navigation bar for before/after comparison,
+ * alongside pinch-to-zoom and pan interactions.
  *
  * Props:
  * - visible (boolean): Controls visibility of the viewer modal.
  * - originalImage (string): URI of the original image.
  * - resultImage (string): URI of the processed (upscaled/bg-removed) image.
- * - initialImage (string): Either 'original' or 'result' (specifies which to show first).
+ * - initialImage (string): Either 'before' or 'after' (specifies which to show first).
  * - onClose (function): Callback when the viewer is closed.
  */
 export default function FullScreenImageViewer({
   visible,
   originalImage,
   resultImage,
-  initialImage = 'result',
+  initialImage = 'after',
   onClose,
 }) {
   // Toggle state between Original and Result images
   const [showOriginal, setShowOriginal] = useState(false);
-  const [hintVisible, setHintVisible] = useState(true);
 
-  // Animation values for scale, position, and hint opacity
+  // Animation values for scale, position, and modal fade transition
   const scale = useRef(new Animated.Value(1)).current;
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const hintOpacity = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current; // Modal entry animation
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // Touch gesture helper states
   const lastScale = useRef(1);
   const startDistance = useRef(null);
   const lastTap = useRef(null);
 
-  // Reset states when the viewer becomes visible
+  // Synchronize state when the viewer becomes visible
   useEffect(() => {
     if (visible) {
-      setShowOriginal(initialImage === 'original');
-      setHintVisible(true);
+      setShowOriginal(initialImage === 'before');
       scale.setValue(1);
       pan.setValue({ x: 0, y: 0 });
       lastScale.current = 1;
       fadeAnim.setValue(0);
-      hintOpacity.setValue(1);
 
-      // Smooth entry animation
+      // Smooth entry transition
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 250,
         useNativeDriver: true,
       }).start();
-
-      // Fade out the helper hint text after 3 seconds
-      const timer = setTimeout(() => {
-        Animated.timing(hintOpacity, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }).start(() => setHintVisible(false));
-      }, 3000);
-
-      return () => clearTimeout(timer);
     }
-  }, [visible]);
+  }, [visible, initialImage]);
 
   // Helper function to calculate distance between two touch coordinates (for pinch zoom)
   const getDistance = (touches) => {
@@ -85,15 +71,7 @@ export default function FullScreenImageViewer({
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  // Helper function to calculate mid-point of two touches (to anchor zoom origin)
-  const getTouchCenter = (touches) => {
-    return {
-      x: (touches[0].pageX + touches[1].pageX) / 2,
-      y: (touches[0].pageY + touches[1].pageY) / 2,
-    };
-  };
-
-  // Create a custom PanResponder to handle multi-touch gestures and taps
+  // Create a custom PanResponder to handle zoom gestures and panning
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -102,10 +80,9 @@ export default function FullScreenImageViewer({
       onPanResponderGrant: (evt, gestureState) => {
         const touches = evt.nativeEvent.touches;
         
-        // 1. Detect Double Tap to Zoom
+        // 1. Double Tap to Zoom
         const now = Date.now();
         if (lastTap.current && now - lastTap.current < 300) {
-          // Double tapped: toggle zoom between 1x and 2.5x
           const targetScale = lastScale.current > 1 ? 1 : 2.5;
           lastScale.current = targetScale;
           
@@ -127,12 +104,6 @@ export default function FullScreenImageViewer({
         if (touches.length === 2) {
           startDistance.current = getDistance(touches);
         }
-
-        // 3. Before/After Comparison - Switch to original when touch starts (if not zooming)
-        // Only trigger comparison if it is a single-touch press
-        if (touches.length === 1 && lastScale.current === 1) {
-          setShowOriginal(true);
-        }
       },
 
       onPanResponderMove: (evt, gestureState) => {
@@ -140,30 +111,23 @@ export default function FullScreenImageViewer({
 
         // Handle Pinch-to-Zoom (Two fingers)
         if (touches.length === 2) {
-          // If we had single finger holding original, release it since user is zooming now
-          setShowOriginal(false);
-
           if (startDistance.current) {
             const currentDistance = getDistance(touches);
             const rawScale = (currentDistance / startDistance.current) * lastScale.current;
-            // Limit zoom scale between 1x and 4x
             const boundedScale = Math.max(1, Math.min(rawScale, 4));
             scale.setValue(boundedScale);
           }
         } 
         // Handle Panning / Dragging (One finger, only when zoomed in)
         else if (touches.length === 1 && lastScale.current > 1) {
-          // Track movement of single finger
           pan.setValue({
-            x: gestureState.dx + (pan.x._value - gestureState.dx), // smooth drag offset
+            x: gestureState.dx + (pan.x._value - gestureState.dx),
             y: gestureState.dy + (pan.y._value - gestureState.dy),
           });
         }
       },
 
       onPanResponderRelease: (evt, gestureState) => {
-        const touches = evt.nativeEvent.touches;
-
         // Update the scale baseline reference
         lastScale.current = scale._value;
 
@@ -184,21 +148,12 @@ export default function FullScreenImageViewer({
           ]).start();
         }
 
-        // Reset pinch distance reference
         startDistance.current = null;
-
-        // When finger is lifted, return preview back to Result image instantly
-        setShowOriginal(initialImage === 'original');
       },
-      
-      onPanResponderTerminate: () => {
-        // Reset state on gesture cancellation
-        setShowOriginal(initialImage === 'original');
-      }
     })
   ).current;
 
-  // Handle closing with animations
+  // Close animation handler
   const handleClose = () => {
     Animated.timing(fadeAnim, {
       toValue: 0,
@@ -216,17 +171,15 @@ export default function FullScreenImageViewer({
     >
       <Animated.View style={[styles.modalContainer, { opacity: fadeAnim }]}>
         
-        {/* Absolute Header - Close Button */}
+        {/* Close (X) button at the top */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Gestures Area (Active for both Pan / Pinch / Hold) */}
+        {/* Gestures Area */}
         <View style={styles.gestureContainer} {...panResponder.panHandlers}>
-          
-          {/* Animated wrapper supporting pan offsets and scale factors */}
           <Animated.View
             style={[
               styles.imageWrapper,
@@ -239,7 +192,7 @@ export default function FullScreenImageViewer({
               },
             ]}
           >
-            {/* Preload and visibility control for maximum performance without reloads */}
+            {/* Preloaded Images - swapped visibility to keep state & zoom consistent */}
             <Image
               source={{ uri: originalImage }}
               style={[
@@ -259,12 +212,28 @@ export default function FullScreenImageViewer({
           </Animated.View>
         </View>
 
-        {/* Helper Hint popup */}
-        {hintVisible && (
-          <Animated.View style={[styles.hintContainer, { opacity: hintOpacity }]}>
-            <Text style={styles.hintText}>👆 Hold screen to compare with Original</Text>
-          </Animated.View>
-        )}
+        {/* Floating Bottom Navigation Toggle Bar */}
+        <View style={styles.navBar}>
+          <TouchableOpacity
+            style={[styles.navButton, showOriginal && styles.navButtonActive]}
+            activeOpacity={0.8}
+            onPress={() => setShowOriginal(true)}
+          >
+            <Text style={[styles.navButtonText, showOriginal && styles.navButtonTextActive]}>
+              Before
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.navButton, !showOriginal && styles.navButtonActive]}
+            activeOpacity={0.8}
+            onPress={() => setShowOriginal(false)}
+          >
+            <Text style={[styles.navButtonText, !showOriginal && styles.navButtonTextActive]}>
+              After
+            </Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </Modal>
   );
@@ -310,21 +279,40 @@ const styles = StyleSheet.create({
   },
   image: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.8,
+    height: SCREEN_HEIGHT * 0.75,
   },
-  hintContainer: {
+  navBar: {
     position: 'absolute',
     bottom: 50,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    padding: 6,
+    borderRadius: 30,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
-  hintText: {
-    color: '#ffffff',
+  navButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  navButtonActive: {
+    backgroundColor: '#3b82f6',
+  },
+  navButtonText: {
+    color: '#94a3b8',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
+  },
+  navButtonTextActive: {
+    color: '#ffffff',
   },
 });
