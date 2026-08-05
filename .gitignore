@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual Environment
+venv/
+.env
+.venv
+env/
+ENV/
+
+# AI Model weights (large binary files - download on first run)
+models/
+*.pth
+*.onnx
+*.bin
+*.safetensors
+
+# HuggingFace cache
+.cache/
+~/.cache/huggingface/
+
+# Logs & temp files
+*.log
+*.tmp
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE/Editor settings
+.vscode/
+.idea/
+*.code-workspace
+
+# PyInstaller
+*.spec
+dist/
+
+# Node.js (mobile app)
+mobile/node_modules/
+mobile/.expo/
+mobile/.expo-shared/
+mobile/.env
+mobile/.env.local
+mobile/expo-env.d.ts
+
+# Expo build outputs
+mobile/android/
+mobile/ios/
+
+# Output images
+output/
+output_bg_removed/
+output_upscaled/
+*.result.png
+
+# Cloudflared binary (downloaded separately)
+cloudflared.exe
